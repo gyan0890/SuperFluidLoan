@@ -7,82 +7,111 @@ import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contr
 contract Loan {
     address public lender;
     address public borrower;
-    ERC20 public token;
-    uint256 public collateralAmount;
     uint256 public payoffAmount;
     uint256 public dueDate;
+    uint256 public loanDuration;
+    uint256 public updatedDate;
+    uint256 public streamAmount;
     
 
     constructor(
         address _lender,
         address _borrower,
-        ERC20 _token,
-        uint256 _collateralAmount,
         uint256 _payoffAmount,
-        uint256 loanDuration
+        uint256 _loanDuration,
+        uint256 _streamAmount
     )
     {
         lender = _lender;
         borrower = _borrower;
-        token = _token;
-        collateralAmount = _collateralAmount;
         payoffAmount = _payoffAmount;
+        loanDuration = _loanDuration;
+        updatedDate = block.timestamp;
         dueDate = block.timestamp + loanDuration;
+        streamAmount = _streamAmount;
     }
 
-    event LoanPaid();
-
-    function payLoan() public payable {
+    event LoanPaid(uint256, uint256, uint256, uint256);
+    
+    function updateLoan(uint256 _payoffAmount, uint256 _loanDuration, uint256 _streamAmount) public {
+        payoffAmount = _payoffAmount;
+        loanDuration = _loanDuration;
+        streamAmount = _streamAmount;
+        updatedDate = block.timestamp;
+        emit LoanPaid(_payoffAmount,_loanDuration, _streamAmount, block.timestamp);
+    }
+    
+    function partPayment(uint256 _payoffAmount, uint256 _loanDuration, uint256 _streamAmount) public payable {
         require(block.timestamp <= dueDate);
-        require(msg.value == payoffAmount);
-
-        require(token.transfer(borrower, collateralAmount));
-        emit LoanPaid();
+        require(msg.sender == borrower);
+        payable(lender).transfer(msg.value);
+        updateLoan(_payoffAmount, _loanDuration, _streamAmount);
+        
+    }
+    
+    function preClosure() public payable {
+        require(msg.value == payoffAmount, "Pay off amount value is not correct");
+        require(msg.sender == borrower);
+        payable(lender).transfer(msg.value);
+        updateLoan(0, 0, 0);
+        finalize();
+    }
+    
+    function finalize() public {
         selfdestruct(payable(lender));
     }
 
-    function repossess() public {
-        require(block.timestamp > dueDate);
-
-        require(token.transfer(lender, collateralAmount));
-        selfdestruct(payable(lender));
-    }
 }
 
 contract LoanRequest {
-    address public borrower = msg.sender;
-    ERC20 public token;
-    uint256 public collateralAmount;
+    address public borrower;
+    string public borrowerName;
+    string public borrowerEmail;
+    string public panCard;
+    string public uid;
+    string public loanPurpose;
+    string public guaranteer;
     uint256 public loanAmount;
     uint256 public payoffAmount;
-    uint256 public loanDuration;
+    uint256 public loanDuration; //In hours
+    uint256 public loanFrequency;
+    uint256 public streamAmount;
 
     constructor (
-        ERC20 _token,
-        uint256 _collateralAmount,
+        string memory _borrowerName,
+        string memory _borrowerEmail,
+        string memory _panCard,
+        string memory _uid,
+        string memory _loanPurpose,
+        string memory _guaranteer,
         uint256 _loanAmount,
         uint256 _payoffAmount,
         uint256 _loanDuration
     )
     {
-        token = _token;
-        collateralAmount = _collateralAmount;
+        borrowerName = _borrowerName;
+        borrowerEmail = _borrowerEmail;
+        panCard = _panCard;
+        uid = _uid;
+        loanPurpose = _loanPurpose;
+        guaranteer = _guaranteer;
         loanAmount = _loanAmount;
         payoffAmount = _payoffAmount;
         loanDuration = _loanDuration;
+        borrower = msg.sender;
     }
 
     event LoanRequestAccepted(address loan);
-
+    Loan public loan;
     function lendEther() public payable {
         require(msg.value == loanAmount);
-        Loan loan = new Loan(
+    
+        loan = new Loan(
             msg.sender,
             borrower,
-            token,
-            collateralAmount,
             payoffAmount,
-            loanDuration
+            loanDuration,
+            streamAmount
         );
         //require(token.transferFrom(borrower, loan, collateralAmount));
         payable(borrower).transfer(loanAmount);
