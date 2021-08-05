@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity >=0.4.22 <0.9.0;
 
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Counters.sol";
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol";
@@ -57,14 +57,13 @@ contract LoanRequest {
     uint256 public payoffAmount;
     uint256 public loanDuration;
 
-    function LoanRequestApplication(
+    constructor (
         ERC20 _token,
         uint256 _collateralAmount,
         uint256 _loanAmount,
         uint256 _payoffAmount,
         uint256 _loanDuration
     )
-        public
     {
         token = _token;
         collateralAmount = _collateralAmount;
@@ -73,13 +72,11 @@ contract LoanRequest {
         loanDuration = _loanDuration;
     }
 
-    // Loan public loan;
-
     event LoanRequestAccepted(address loan);
 
     function lendEther() public payable {
         require(msg.value == loanAmount);
-        Loan loan = Loan(
+        Loan loan = new Loan(
             msg.sender,
             borrower,
             token,
@@ -87,8 +84,8 @@ contract LoanRequest {
             payoffAmount,
             loanDuration
         );
-        require(token.transferFrom(borrower, loan, collateralAmount));
-        borrower.transfer(loanAmount);
-        emit LoanRequestAccepted(loan);
+        //require(token.transferFrom(borrower, loan, collateralAmount));
+        payable(borrower).transfer(loanAmount);
+        emit LoanRequestAccepted(address(loan));
     }
 }
